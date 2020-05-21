@@ -1,6 +1,8 @@
 // judge <problemid> [timeLimit [memoryLimit [checkerPath]]]
 
 #include <algorithm>
+#include <windows.h>
+#include <iostream>
 #include <direct.h>
 #include <fstream>
 #include <cstdlib>
@@ -16,45 +18,20 @@ string quote(const string & s)
     return "\"" + s + "\"";
 }
 
-void unzip(const string & ZIPpath, const string & unZIPpath)
+void unzip(const string & id, const string & path)
 {
-    ifstream config("config.txt");
+    ifstream config("config.ini");
     string command;
     getline(config, command);
     getline(config, command);
     getline(config, command);
     getline(config, command, ' ');
     getline(config, command);
-    int p = command.find("<ZIPpath>");
+    int p = command.find("<id>");
     while (p < command.size())
     {
-        command.replace(p, 9, ZIPpath);
-        p = command.find("<ZIPpath>");
-    }
-    p = command.find("<unZIPpath>");
-    while (p < command.size())
-    {
-        command.replace(p, 11, unZIPpath);
-        p = command.find("<unZIPpath>");
-    }
-    system(command.c_str());
-}
-
-void download(const string & link, const string & path, const string & name)
-{
-    ifstream config("config.txt");
-    string command;
-    getline(config, command);
-    getline(config, command);
-    getline(config, command);
-    getline(config, command);
-    getline(config, command, ' ');
-    getline(config, command);
-    int p = command.find("<link>");
-    while (p < command.size())
-    {
-        command.replace(p, 6, link);
-        p = command.find("<link>");
+        command.replace(p, 4, id);
+        p = command.find("<id>");
     }
     p = command.find("<path>");
     while (p < command.size())
@@ -62,11 +39,30 @@ void download(const string & link, const string & path, const string & name)
         command.replace(p, 6, path);
         p = command.find("<path>");
     }
-    p = command.find("<name>");
+    system(command.c_str());
+}
+
+void download(const string & id, const string & path)
+{
+    ifstream config("config.ini");
+    string command;
+    getline(config, command);
+    getline(config, command);
+    getline(config, command);
+    getline(config, command);
+    getline(config, command, ' ');
+    getline(config, command);
+    int p = command.find("<id>");
     while (p < command.size())
     {
-        command.replace(p, 6, name);
-        p = command.find("<name>");
+        command.replace(p, 4, id);
+        p = command.find("<id>");
+    }
+    p = command.find("<path>");
+    while (p < command.size())
+    {
+        command.replace(p, 6, path);
+        p = command.find("<path>");
     }
     system(command.c_str());
 }
@@ -95,7 +91,7 @@ int main(int argc, char* argv[])
     if (argc <= 3)
     {
         string s;
-        ifstream config("config.txt");
+        ifstream config("config.ini");
         config >> s >> timeLimit;
         config >> s >> memoryLimit;
         config.close();
@@ -110,16 +106,17 @@ int main(int argc, char* argv[])
 
     if (argc >= 5)
     {
-        checker = quote(argv[4]);
+        checker = argv[4];
         if (checker == "1")
         {
-            if (system(("compile " + quote(pwd + "\\problems\\" + problemid + "\\checker") + " " + quote("-I " + pwd)).c_str()))
+            if (system(("compile " + quote(pwd + "\\problems\\" + problemid + "\\checker") + " " + quote(" -I \\\"" + pwd + "\\\"")).c_str()))
             {
                 puts("Checker Compile Error!");
                 return 1;
             }
             checker = pwd + "\\problems\\" + problemid + "\\checker.exe";
         }
+        checker = quote(checker);
     }
 
     if (system(("compile " + quote(pwd + "\\problems\\" + problemid + "\\" + problemid)).c_str()))
@@ -134,11 +131,12 @@ int main(int argc, char* argv[])
         if (_access(path.c_str(), 0) == -1)
         {
             puts("downloading...");
-            download("https://lydsy.download/archive/" + problemid + ".zip", quote(pwd + "\\data"), problemid + ".zip");
+            download(problemid, quote(pwd + "\\data"));
         }
         while (_access(path.c_str(), 0) == -1);
+        Sleep(100);
         puts("unzipping...");
-        unzip(quote(path), quote(pwd + "\\data"));
+        unzip(problemid, pwd + "\\data");
         while (_access((pwd + "\\data\\" + problemid).c_str(), 0) == -1);
     }
 
@@ -166,6 +164,22 @@ int main(int argc, char* argv[])
             string inpath = pwd + "\\data\\" + problemid + "\\" + name + ".in";
             string outpath = pwd + "\\problems\\" + problemid + "\\" + name + ".out";
             string anspath = pwd + "\\data\\" + problemid + "\\" + name + ".out";
+            if (_access(anspath.c_str(), 0) == -1)
+            {
+                anspath = pwd + "\\data\\" + problemid + "\\" + name + ".ans";
+                if (_access(anspath.c_str(), 0) == -1)
+                {
+                    cout << "Please enter answer file suffix for the test point " << name << ": ";
+                    string ans_suffix;
+                    cin >> ans_suffix;
+                    anspath = pwd + "\\data\\" + problemid + "\\" + name + "." + ans_suffix;
+                    if (_access(anspath.c_str(), 0) == -1)
+                    {
+                        cout << "Unable to find the answer file for the test point " + name << endl;
+                        continue;
+                    }
+                }
+            }
             system(("judger " + quote(executableFile) + " " + quote(inpath) + " " + quote(outpath) + " " + quote(anspath)
                     + " " + quote(timeLimit) + " " + quote(memoryLimit) + " " + checker).c_str());
             ifstream res("judger.out");
